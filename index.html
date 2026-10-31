@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Volopay e-Invoice Hub: Malaysia prototype</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--tx:#14182b;--mu:#5d6480;--bd:#dde0ec;--ac:#5b4cf0;--ok:#127a4a;--er:#b3261e;--wn:#8a5a00;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10131f;--card:#191d2e;--tx:#eceefa;--mu:#9aa1c0;--bd:#2b3150;--ac:#8c80ff;--ok:#4cd08c;--er:#ff8a80;--wn:#f0b44c;color-scheme:dark}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 Arial,Helvetica,sans-serif}
+main{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:0 0 10px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px}
+.sim{border-left:4px solid var(--wn);color:var(--wn);padding:8px 10px;background:var(--card);border-radius:6px;margin:10px 0}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+label{display:block;font-size:12px;color:var(--mu);margin-bottom:3px}
+input,select{width:100%;box-sizing:border-box;padding:7px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit}
+input.bad{border-color:var(--er)}
+button{border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:7px 11px;border-radius:6px;cursor:pointer;font:inherit}
+button.p{background:var(--ac);border-color:var(--ac);color:#fff}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.err{color:var(--er);font-size:12px;margin-top:2px}
+#errs{border:1px solid var(--er);border-radius:8px;padding:8px 12px;margin-top:10px;display:none}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{text-align:left;padding:7px;border-bottom:1px solid var(--bd);vertical-align:top}
+.tag{padding:2px 8px;border-radius:10px;font-size:12px;border:1px solid var(--bd)}
+.Valid{color:var(--ok)}.Invalid{color:var(--er)}.Submitted{color:var(--wn)}.Cancelled{color:var(--mu)}
+.log{font-size:12px;color:var(--mu)}
+ul{margin:6px 0;padding-left:18px}
+svg text{font:11px Arial,sans-serif;fill:var(--tx)}
+</style></head><body><main>
+<h1>Volopay e-Invoice Hub: Malaysia (MyInvois) prototype</h1>
+<div style="color:var(--mu)">Finance user flow: create invoice, validate, submit via e-invoicing partner, track status.</div>
+<div class="sim"><b>SIMULATED:</b> there is no live connection to Storecove or LHDN MyInvois. All submissions, UUIDs and responses below are generated in your browser. Sample data only. Built with AI assistance (Claude) and reviewed by the author.</div>
+
+<div class="card"><h2>1. Create invoice</h2>
+<div class="row" style="margin:0 0 10px"><span style="color:var(--mu)">Load sample:</span>
+<button onclick="smp(1)">A: local validation error</button><button onclick="smp(2)">B: provider rejection</button><button onclick="smp(3)">C: valid</button></div>
+<div class="g">
+<div><label>Invoice no.</label><input id="no"></div>
+<div><label>Issue date</label><input id="date" type="date"></div>
+<div><label>Transaction type</label><select id="type"><option>B2B</option><option>B2C</option></select></div>
+<div><label>Supplier name</label><input id="sup" value="Demo Supplier Sdn Bhd"></div>
+<div><label>Supplier TIN</label><input id="supTin" value="C1234567890"></div>
+<div><label>Buyer name</label><input id="buyer"></div>
+<div><label>Buyer TIN</label><input id="buyTin"></div>
+<div><label>Buyer BRN (B2B)</label><input id="buyBrn"></div>
+<div><label>Currency</label><select id="cur" onchange="fx()"><option>MYR</option><option>SGD</option><option>USD</option></select></div>
+<div id="rw" style="display:none"><label>Exchange rate to MYR</label><input id="rate" type="number" step="0.0001"></div>
+<div><label>Line description</label><input id="desc"></div>
+<div><label>Quantity</label><input id="qty" type="number" value="1" oninput="tot()"></div>
+<div><label>Unit price</label><input id="price" type="number" value="0" oninput="tot()"></div>
+<div><label>SST rate</label><select id="tax" onchange="tot()"><option value="0">0%</option><option value="6">6%</option><option value="8">8%</option></select></div>
+</div>
+<div class="row"><b id="total">Total: MYR 0.00</b></div>
+<div id="errs"></div>
+<div class="row"><button class="p" onclick="submitInv()">Validate and submit to MyInvois (simulated)</button></div>
+<div class="log">Prototype simplifications: one line item per invoice. TIN rule is a demo pattern (1 to 2 letters then 10 digits), not the real LHDN rule.</div>
+</div>
+
+<div class="card"><h2>2. Invoice status</h2><div class="tw"><table><thead><tr><th>No.</th><th>Buyer</th><th>Total (MYR)</th><th>Status</th><th>Detail</th><th></th></tr></thead><tbody id="rows"><tr><td colspan="6" class="log">No invoices yet. Load a sample above.</td></tr></tbody></table></div></div>
+
+<div class="card"><h2>3. Architecture</h2>
+<div class="tw"><svg viewBox="0 0 900 250" width="100%" style="min-width:700px" role="img" aria-label="Architecture diagram">
+<defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a90ad"/></marker></defs>
+<g stroke="#8a90ad" stroke-width="1.5" fill="none" marker-end="url(#a)">
+<path d="M130,60 H175"/><path d="M335,60 H380"/><path d="M540,60 H585"/><path d="M745,60 H790" stroke-dasharray="5 4"/>
+<path d="M255,90 V150" /><path d="M460,90 V150" stroke-dasharray="5 4"/><path d="M790,100 H540" stroke-dasharray="5 4"/>
+</g>
+<g stroke="#5b4cf0" stroke-width="1.5" fill="none">
+<rect x="10" y="30" width="120" height="60" rx="8"/><rect x="175" y="30" width="160" height="60" rx="8"/><rect x="215" y="150" width="80" height="50" rx="8"/>
+</g>
+<g stroke="#8a90ad" stroke-width="1.5" fill="none" stroke-dasharray="5 4">
+<rect x="380" y="30" width="160" height="60" rx="8"/><rect x="585" y="30" width="160" height="60" rx="8"/><rect x="790" y="30" width="100" height="60" rx="8"/><rect x="380" y="150" width="160" height="50" rx="8"/>
+</g>
+<text x="70" y="58" text-anchor="middle">Browser UI</text><text x="70" y="74" text-anchor="middle">(built)</text>
+<text x="255" y="52" text-anchor="middle">Volopay backend</text><text x="255" y="68" text-anchor="middle">validation + mapping</text><text x="255" y="82" text-anchor="middle">(simulated in JS)</text>
+<text x="255" y="172" text-anchor="middle">Database</text><text x="255" y="188" text-anchor="middle">(in memory)</text>
+<text x="460" y="58" text-anchor="middle">Storecove API</text><text x="460" y="74" text-anchor="middle">UBL + status webhook</text>
+<text x="665" y="58" text-anchor="middle">Storecove to LHDN</text><text x="665" y="74" text-anchor="middle">clearance (proposed)</text>
+<text x="840" y="62" text-anchor="middle">LHDN</text><text x="840" y="76" text-anchor="middle">MyInvois</text>
+<text x="460" y="172" text-anchor="middle">ERP / accounting sync</text><text x="460" y="188" text-anchor="middle">Xero, AutoCount (proposed)</text>
+<text x="665" y="118" text-anchor="middle">status and errors return</text>
+<text x="10" y="230">Solid purple = built in this prototype. Dashed grey = proposed for production.</text>
+</svg></div>
+<ul>
+<li><b>Data flow:</b> UI form, then backend validation, then mapping to UBL, then partner API, then LHDN clearance. Status and errors come back by webhook to the backend and then to the user.</li>
+<li><b>Where validation happens:</b> (1) Volopay, instantly, for required fields, TIN pattern, RM10,000 individual-invoice rule and foreign currency rate. (2) LHDN, after submission, for registry checks such as whether a buyer TIN exists. Prototype simulates the second.</li>
+</ul></div>
+
+<div class="card"><h2>4. Built vs simulated, partner split, next steps</h2>
+<ul>
+<li><b>Actually works:</b> form, local validation, totals, status table, rejection and fix loop, cancel within the 72-hour window rule, this diagram.</li>
+<li><b>Simulated:</b> Storecove submission, LHDN response, UUID, delay, database (lost on refresh), ERP sync.</li>
+<li><b>Volopay builds:</b> invoice data model, validation rules, approvals, AP matching, payments, ERP sync, UX. <b>Storecove provides:</b> UBL conversion, MyInvois connectivity, status webhooks, so Volopay avoids building a direct LHDN integration.</li>
+<li><b>Next steps to launch:</b> open Storecove sandbox, map full 55-field LHDN data set, replace TIN rule with registry check, add multi-line and consolidated invoices, security review, pilot with 5 customers.</li>
+<li><b>Assumptions:</b> Malaysian rules (RM10,000 individual invoice threshold, 72-hour cancellation, foreign currency rate) come from public guides and must be re-checked against LHDN before production.</li>
+</ul></div>
+</main>
+<script>
+const S={inv:[],n:0};
+const $=i=>document.getElementById(i);
+const IDS=['no','date','type','sup','supTin','buyer','buyTin','buyBrn','cur','rate','desc','qty','price','tax'];
+function g(i){return $(i).value.trim()}
+function amt(){const b=(+g('qty')||0)*(+g('price')||0);const t=b*(1+(+g('tax'))/100);const r=g('cur')==='MYR'?1:(+g('rate')||0);return {t,my:t*r}}
+function tot(){$('total').textContent='Total: '+g('cur')+' '+amt().t.toFixed(2)+(g('cur')!=='MYR'?'  (MYR '+amt().my.toFixed(2)+')':'')}
+function fx(){$('rw').style.display=g('cur')==='MYR'?'none':'block';tot()}
+function val(){
+ const e=[];const a=amt();
+ const add=(f,m)=>e.push({f,m});
+ if(!g('no'))add('no','Invoice number is required');
+ else if(S.inv.some(x=>x.no===g('no')&&x.status!=='Invalid'&&x.status!=='Cancelled'))add('no','Invoice number already used');
+ if(!g('date'))add('date','Issue date is required');
+ else if(g('date')>new Date().toISOString().slice(0,10))add('date','Issue date cannot be in the future');
+ if(!/^[A-Z]{1,2}\d{10}$/.test(g('supTin')))add('supTin','Supplier TIN must be 1 to 2 letters then 10 digits (demo rule)');
+ if(!g('buyer'))add('buyer','Buyer name is required');
+ const need=g('type')==='B2B'||a.my>10000;
+ if(need&&!/^[A-Z]{1,2}\d{10}$/.test(g('buyTin')))add('buyTin','Buyer TIN is required and valid for B2B or invoices above RM10,000');
+ if(g('type')==='B2B'&&!g('buyBrn'))add('buyBrn','Buyer BRN is required for B2B');
+ if(g('cur')!=='MYR'&&!(+g('rate')>0))add('rate','Exchange rate to MYR is required for foreign currency');
+ if(!g('desc'))add('desc','Line description is required');
+ if(!(+g('qty')>0)||!(+g('price')>0))add('price','Quantity and unit price must be above zero');
+ return e;
+}
+function submitInv(){
+ IDS.forEach(i=>$(i).classList.remove('bad'));
+ const e=val(),box=$('errs');
+ if(e.length){box.style.display='block';box.innerHTML='<b>Validation failed in Volopay (nothing sent to partner):</b><ul>'+e.map(x=>'<li class="err">'+x.m+'</li>').join('')+'</ul>';e.forEach(x=>$(x.f).classList.add('bad'));return}
+ box.style.display='none';
+ const o={id:++S.n,no:g('no'),buyer:g('buyer'),my:amt().my,status:'Submitted',detail:'Sent to Storecove (SIMULATED)',buyTin:g('buyTin'),form:IDS.reduce((m,i)=>(m[i]=g(i),m),{}),at:Date.now()};
+ S.inv.unshift(o);draw();
+ setTimeout(()=>{
+  if(o.buyTin==='C0000000000'){o.status='Invalid';o.detail='SIMULATED LHDN rejection SIM-TIN-404: buyer TIN not found in registry. Fix the buyer TIN and resubmit.'}
+  else{o.status='Valid';o.detail='SIMULATED validation OK. UUID '+crypto.randomUUID().slice(0,18)+'... Cancellation allowed for 72 hours.'}
+  draw()},1200);
+}
+function fix(id){const o=S.inv.find(x=>x.id===id);IDS.forEach(i=>$(i).value=o.form[i]);fx();$('buyTin').value='';$('buyTin').focus();window.scrollTo({top:0,behavior:'smooth'})}
+function cancel(id){const o=S.inv.find(x=>x.id===id);o.status='Cancelled';o.detail='Cancelled within 72 hours (SIMULATED request to LHDN)';draw()}
+function draw(){
+ $('rows').innerHTML=S.inv.map(o=>'<tr><td>'+o.no+'</td><td>'+o.buyer+'</td><td>'+o.my.toFixed(2)+'</td><td><span class="tag '+o.status+'">'+o.status+'</span></td><td class="log">'+o.detail+'</td><td>'+(o.status==='Invalid'?'<button onclick="fix('+o.id+')">Fix and resubmit</button>':o.status==='Valid'?'<button onclick="cancel('+o.id+')">Cancel</button>':'')+'</td></tr>').join('')||'<tr><td colspan="6" class="log">No invoices yet.</td></tr>';
+}
+function smp(k){
+ const n='INV-'+String(S.n+1).padStart(4,'0');
+ const base={no:n,date:'2026-10-30',type:'B2B',sup:'Demo Supplier Sdn Bhd',supTin:'C1234567890',buyer:'Sample Buyer Bhd',buyTin:'C2584563020',buyBrn:'201901000001',cur:'MYR',rate:'',desc:'Software subscription (sample)',qty:'1',price:'4200',tax:'8'};
+ if(k===1)Object.assign(base,{buyer:'Sample Retail Sdn Bhd',buyTin:'',buyBrn:'',price:'12500',desc:'Consulting services (sample)'});
+ if(k===2)Object.assign(base,{buyer:'Unregistered Buyer Sdn Bhd',buyTin:'C0000000000'});
+ IDS.forEach(i=>$(i).value=base[i]);fx();$('errs').style.display='none';
+}
+$('date').value='2026-10-30';tot();
+</script></body></html>
